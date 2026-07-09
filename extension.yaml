@@ -1,0 +1,10 @@
+Id: PhalkProfiles_Plugin
+Name: Phalk Profiles
+Author: Phalk
+Type: GenericPlugin
+Version: 1.0.1
+Module: PhalkProfiles.dll
+Icon: icon.png
+Links:
+  - Name: Website
+    Url: https://www.phalk.net/profiles/
