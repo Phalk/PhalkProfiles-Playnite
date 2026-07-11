@@ -2,6 +2,7 @@ using Playnite.SDK;
 using Playnite.SDK.Data;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace PhalkProfiles
 {
@@ -25,6 +26,9 @@ namespace PhalkProfiles
         private readonly PhalkProfilesPlugin plugin;
         private PhalkProfilesSettings editingClone;
 
+        private bool isSyncing;
+        public bool IsSyncing { get => isSyncing; set => SetValue(ref isSyncing, value); }
+
         public PhalkProfilesSettings Settings { get; set; }
 
         public PhalkProfilesSettingsViewModel(PhalkProfilesPlugin plugin)
@@ -46,11 +50,10 @@ namespace PhalkProfiles
 
         public void EndEdit()
         {
+            // Save agora só persiste as configurações. A sincronização é
+            // disparada manualmente pelo botão "Sync Now" (na própria view)
+            // ou pelo item de menu Extensions -> Phalk Profiles -> Sync Now.
             plugin.SavePluginSettings(Settings);
-
-            // Toda vez que o usuário salva as configurações, dispara uma varredura
-            // completa da biblioteca em segundo plano.
-            System.Threading.Tasks.Task.Run(() => plugin.SincronizarBibliotecaCompleta());
         }
 
         public bool VerifySettings(out List<string> errors)
@@ -59,24 +62,47 @@ namespace PhalkProfiles
 
             if (string.IsNullOrWhiteSpace(Settings.ApiUrl))
             {
-                errors.Add("Informe a URL da API.");
+                errors.Add("Please enter the API URL.");
             }
             else if (!Uri.TryCreate(Settings.ApiUrl, UriKind.Absolute, out _))
             {
-                errors.Add("A URL da API não é válida.");
+                errors.Add("The API URL is not valid.");
             }
 
             if (string.IsNullOrWhiteSpace(Settings.Username))
             {
-                errors.Add("Informe o usuário.");
+                errors.Add("Please enter a username.");
             }
 
             if (string.IsNullOrWhiteSpace(Settings.Password))
             {
-                errors.Add("Informe a senha.");
+                errors.Add("Please enter a password.");
             }
 
             return errors.Count == 0;
+        }
+
+        /// <summary>
+        /// Dispara uma sincronização completa da biblioteca sob demanda.
+        /// Usado pelo botão "Sync Now" na tela de configurações.
+        /// Retorna true se o servidor aceitou o lote.
+        /// </summary>
+        public async Task<bool> SyncNowAsync()
+        {
+            if (IsSyncing)
+            {
+                return false;
+            }
+
+            IsSyncing = true;
+            try
+            {
+                return await plugin.SincronizarBibliotecaCompleta();
+            }
+            finally
+            {
+                IsSyncing = false;
+            }
         }
     }
 }

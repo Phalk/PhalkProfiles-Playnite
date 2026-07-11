@@ -4,6 +4,7 @@ using Playnite.SDK.Models;
 using Playnite.SDK.Plugins;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -54,17 +55,57 @@ namespace PhalkProfiles
             Task.Run(() => EnviarParaServidor(payload, settings));
         }
 
+        // Item de menu: Main Menu -> Extensions -> Phalk Profiles -> Sync Now
+        public override IEnumerable<MainMenuItem> GetMainMenuItems(GetMainMenuItemsArgs args)
+        {
+            yield return new MainMenuItem
+            {
+                Description = "Sync Now",
+                MenuSection = "@Phalk Profiles",
+                Action = (mainMenuItem) =>
+                {
+                    var settings = SettingsViewModel.Settings;
+
+                    if (!SettingsValidas(settings))
+                    {
+                        PlayniteApi.Dialogs.ShowErrorMessage(
+                            "Phalk Profiles is not configured yet. Please set the API URL, username and password in the extension settings first.",
+                            "Phalk Profiles");
+                        return;
+                    }
+
+                    PlayniteApi.Notifications.Add(new NotificationMessage(
+                        "phalkprofiles-sync-start",
+                        "Phalk Profiles: library sync started...",
+                        NotificationType.Info));
+
+                    Task.Run(async () =>
+                    {
+                        var success = await SincronizarBibliotecaCompleta();
+
+                        PlayniteApi.Notifications.Add(new NotificationMessage(
+                            "phalkprofiles-sync-done",
+                            success
+                                ? "Phalk Profiles: library sync completed successfully."
+                                : "Phalk Profiles: library sync failed. Check Playnite's extension log for details.",
+                            success ? NotificationType.Info : NotificationType.Error));
+                    });
+                }
+            };
+        }
+
         /// <summary>
         /// Varre toda a biblioteca do Playnite, monta um único array e envia em lote.
+        /// Retorna true se o servidor aceitou o lote.
         /// </summary>
-        public async Task SincronizarBibliotecaCompleta()
+        public async Task<bool> SincronizarBibliotecaCompleta()
         {
             var settings = SettingsViewModel.Settings;
 
             if (!SettingsValidas(settings))
             {
                 logger.Warn("Phalk Profiles: Varredura em lote cancelada - configurações ausentes (URL/Usuário/Senha).");
-                return;
+                return false;
             }
 
             var jogos = PlayniteApi.Database.Games.ToList();
@@ -77,7 +118,7 @@ namespace PhalkProfiles
                 loteJogos.Add(MontarPayload(game));
             }
 
-            await EnviarLoteParaServidor(loteJogos, settings);
+            return await EnviarLoteParaServidor(loteJogos, settings);
         }
 
         private bool SettingsValidas(PhalkProfilesSettings settings)
@@ -103,7 +144,8 @@ namespace PhalkProfiles
 
         private List<Dictionary<string, object>> GetGameAchievements(Game game)
         {
-            return new List<Dictionary<string, object>>();
+            var extensionsDataRoot = Path.GetDirectoryName(GetPluginUserDataPath());
+            return PlayniteAchievementsReader.GetAchievementsForGame(game, extensionsDataRoot);
         }
 
         // Envio individual (usado quando um único jogo é fechado)
@@ -142,7 +184,7 @@ namespace PhalkProfiles
             }
         }
 
-        // Envio em lote (usado na inicialização)
+        // Envio em lote (usado na inicialização e no Sync Now)
         private async Task<bool> EnviarLoteParaServidor(List<Dictionary<string, object>> loteJogos, PhalkProfilesSettings settings)
         {
             try

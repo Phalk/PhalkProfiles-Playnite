@@ -4,19 +4,37 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
-             d:DesignHeight="300" d:DesignWidth="400">
+             d:DesignHeight="380" d:DesignWidth="420">
     <StackPanel Margin="20">
         <TextBlock Text="Phalk Profiles - Configuration" FontSize="16" FontWeight="Bold" Margin="0,0,0,20"/>
 
         <TextBlock Text="API URL:" Margin="0,10,0,5"/>
         <TextBox Text="{Binding Settings.ApiUrl, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
 
-        <TextBlock Text="User name:" Margin="0,10,0,5"/>
+        <TextBlock Text="Username:" Margin="0,10,0,5"/>
         <TextBox Text="{Binding Settings.Username, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
 
         <TextBlock Text="Password:" Margin="0,10,0,5"/>
         <!-- PasswordBox não suporta Binding direto por segurança do WPF,
              então o valor é sincronizado via code-behind (evento PasswordChanged). -->
         <PasswordBox x:Name="PasswordInput" Padding="5" PasswordChanged="PasswordInput_PasswordChanged"/>
+
+        <Separator Margin="0,20,0,15"/>
+
+        <TextBlock Text="Manual sync" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
+        <TextBlock Text="Saving only stores your settings. Use the button below to push your full library right now."
+                   TextWrapping="Wrap" Opacity="0.7" Margin="0,0,0,10"/>
+
+        <StackPanel Orientation="Horizontal">
+            <Button x:Name="SyncNowButton"
+                    Content="Sync Now"
+                    Padding="15,6"
+                    Click="SyncNowButton_Click"/>
+            <TextBlock x:Name="SyncStatusText"
+                       Text=""
+                       VerticalAlignment="Center"
+                       Margin="12,0,0,0"
+                       TextWrapping="Wrap"/>
+        </StackPanel>
     </StackPanel>
 </UserControl>
