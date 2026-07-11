@@ -9,6 +9,7 @@ This is a plugin for the [Playnite](https://playnite.link/) game library manager
 The plugin automates the export of your game data from Playnite to the Phalk Profiles platform. With it, you can:
 * **Share Your Library:** Showcase your entire game collection in one single place.
 * **Sync Playtime:** Keep your game hours counter updated automatically on your web profile.
+* **Sync Achievements:** It is compatible with achievements from the addon [Playnite Achievements](https://github.com/justin-delano/PlayniteAchievements/)
 * **Centralization:** Consolidate statistics from multiple platforms (Steam, Epic, GOG, PlayStation, Xbox, Nintendo etc.) that you already manage via Playnite onto your **Phalk Profiles** page.
 
 ---
