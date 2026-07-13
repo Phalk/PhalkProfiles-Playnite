@@ -19,6 +19,10 @@ namespace PhalkProfiles
         private static readonly ILogger logger = LogManager.GetLogger();
         private static readonly HttpClient httpClient = new HttpClient();
 
+        // Jogos com menos que isso de tempo jogado (em segundos) não são
+        // enviados para o servidor - Game.Playtime é medido em segundos.
+        private const ulong PlaytimeMinimoSegundos = 120;
+
         public PhalkProfilesSettingsViewModel SettingsViewModel { get; set; }
         public override Guid Id { get; } = Guid.Parse("a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d");
 
@@ -47,6 +51,12 @@ namespace PhalkProfiles
             if (!SettingsValidas(settings))
             {
                 logger.Warn("Phalk Profiles: Configurações ausentes. Dados do jogo não enviados.");
+                return;
+            }
+
+            if (args.Game.Playtime < PlaytimeMinimoSegundos)
+            {
+                logger.Info($"Phalk Profiles: Jogo {args.Game.Name} fechado com apenas {args.Game.Playtime}s jogados, abaixo do mínimo de {PlaytimeMinimoSegundos}s - não enviado.");
                 return;
             }
 
@@ -94,6 +104,65 @@ namespace PhalkProfiles
             };
         }
 
+        // Item de menu de contexto: Clique direito no jogo -> Phalk Profiles -> Sync Game Data
+        public override IEnumerable<GameMenuItem> GetGameMenuItems(GetGameMenuItemsArgs args)
+        {
+            yield return new GameMenuItem
+            {
+                Description = "Sync Game",
+                MenuSection = "Phalk Profiles",
+                Action = (gameMenuItem) =>
+                {
+                    var settings = SettingsViewModel.Settings;
+
+                    // 1. Valida as configurações da extensão
+                    if (!SettingsValidas(settings))
+                    {
+                        PlayniteApi.Dialogs.ShowErrorMessage(
+                            "Phalk Profiles is not configured yet. Please set the API URL, username and password in the extension settings first.",
+                            "Phalk Profiles");
+                        return;
+                    }
+
+                    // 2. Verifica se há algum jogo selecionado
+                    if (args.Games == null || !args.Games.Any())
+                    {
+                        return;
+                    }
+
+                    // 3. Processa em segundo plano para não travar a interface do Playnite
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            // Percorre todos os jogos selecionados (caso o usuário selecione mais de um de uma vez)
+                            foreach (var game in args.Games)
+                            {
+                                logger.Info($"Phalk Profiles: Enviando atualização manual via menu para o jogo: {game.Name}");
+                                var payload = MontarPayload(game);
+                                EnviarParaServidor(payload, settings);
+                            }
+
+                            // Notifica sucesso
+                            PlayniteApi.Notifications.Add(new NotificationMessage(
+                                "phalkprofiles-game-sync-done",
+                                "Phalk Profiles: Selected game(s) synchronized successfully.",
+                                NotificationType.Info));
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Error(ex, "Erro ao sincronizar jogo(s) selecionado(s) manualmente.");
+
+                            PlayniteApi.Notifications.Add(new NotificationMessage(
+                                "phalkprofiles-game-sync-done",
+                                "Phalk Profiles: Failed to sync selected game(s). Check logs for details.",
+                                NotificationType.Error));
+                        }
+                    });
+                }
+            };
+        }
+
         /// <summary>
         /// Varre toda a biblioteca do Playnite, monta um único array e envia em lote.
         /// Retorna true se o servidor aceitou o lote.
@@ -108,8 +177,10 @@ namespace PhalkProfiles
                 return false;
             }
 
-            var jogos = PlayniteApi.Database.Games.ToList();
-            logger.Info($"Phalk Profiles: Montando lote completo com {jogos.Count} jogo(s)...");
+            var jogos = PlayniteApi.Database.Games
+                .Where(game => game.Playtime >= PlaytimeMinimoSegundos)
+                .ToList();
+            logger.Info($"Phalk Profiles: Montando lote completo com {jogos.Count} jogo(s) (ignorados os com menos de {PlaytimeMinimoSegundos}s jogados)...");
 
             var loteJogos = new List<Dictionary<string, object>>();
 
@@ -130,6 +201,8 @@ namespace PhalkProfiles
 
         private Dictionary<string, object> MontarPayload(Game game)
         {
+            var achievements = GetGameAchievements(game);
+
             return new Dictionary<string, object>
             {
                 { "id", game.Id.ToString() },
@@ -138,11 +211,12 @@ namespace PhalkProfiles
                 { "lastActivity", game.LastActivity?.ToString("yyyy-MM-dd HH:mm:ss") },
                 { "platform", game.Platforms != null && game.Platforms.Count > 0 ? game.Platforms[0].Name : "Desconhecida" },
                 { "rating", game.UserScore },
-                { "achievements", GetGameAchievements(game) }
+                { "achievementsTotal", achievements.TotalCount },
+                { "achievements", achievements.Unlocked }
             };
         }
 
-        private List<Dictionary<string, object>> GetGameAchievements(Game game)
+        private PlayniteAchievementsReader.AchievementsSummary GetGameAchievements(Game game)
         {
             var extensionsDataRoot = Path.GetDirectoryName(GetPluginUserDataPath());
             return PlayniteAchievementsReader.GetAchievementsForGame(game, extensionsDataRoot);

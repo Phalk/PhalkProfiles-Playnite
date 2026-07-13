@@ -14,16 +14,20 @@ namespace PhalkProfiles
         private const string KnownGuidHint = "e6aad2c9-6e06-4d8d-ac55-ac3b252b5f7b";
         private static readonly ILogger logger = LogManager.GetLogger();
         private static string _cachedDbPath;
-        private static bool _lookupDone;
 
+        // Só fazemos cache de um caminho ENCONTRADO. Se a busca falhar (banco
+        // ainda não existe/foi criado), não guardamos essa falha como
+        // definitiva - do contrário, uma primeira tentativa sem sucesso (ex:
+        // no lote disparado pelo OnApplicationStarted, antes do
+        // PlayniteAchievements criar o banco) faria todo envio individual
+        // subsequente (OnGameStopped) nunca mais tentar achar o banco,
+        // mesmo que ele já exista.
         private static string FindDatabasePath(string extensionsDataRoot)
         {
-            if (_lookupDone)
+            if (_cachedDbPath != null && File.Exists(_cachedDbPath))
             {
                 return _cachedDbPath;
             }
-
-            _lookupDone = true;
 
             var hintPath = Path.Combine(extensionsDataRoot, KnownGuidHint, DatabaseFileName);
             if (File.Exists(hintPath))
@@ -51,30 +55,39 @@ namespace PhalkProfiles
                 logger.Warn(ex, "Phalk Profiles: falha ao varrer ExtensionsData procurando o PlayniteAchievements.");
             }
 
-            _cachedDbPath = null;
+            // Não encontrado desta vez - não fixamos isso como definitivo,
+            // a próxima chamada (próximo jogo fechado, próximo lote) tenta de novo.
             return null;
         }
 
         public static void ResetCache()
         {
-            _lookupDone = false;
             _cachedDbPath = null;
         }
 
-        public static List<Dictionary<string, object>> GetAchievementsForGame(Game game, string extensionsDataRoot)
+        public class AchievementsSummary
         {
-            var result = new List<Dictionary<string, object>>();
+            public int TotalCount { get; set; }
+            public List<Dictionary<string, object>> Unlocked { get; set; } = new List<Dictionary<string, object>>();
+        }
+
+        public static AchievementsSummary GetAchievementsForGame(Game game, string extensionsDataRoot)
+        {
+            var summary = new AchievementsSummary();
 
             var dbPath = FindDatabasePath(extensionsDataRoot);
             if (dbPath == null || !File.Exists(dbPath))
             {
-                return result; // plugin não instalado ou ainda sem dados
+                return summary; // plugin não instalado ou ainda sem dados
             }
 
             // Read Only + imutable evita conflito de lock com o PlayniteAchievements
             // gravando no banco durante um refresh em segundo plano.
             var connectionString = $"Data Source={dbPath};Version=3;Read Only=True;";
 
+            // Traz TODOS os achievements (bloqueados e desbloqueados) - o total
+            // é a contagem de todas as linhas, mas só montamos o dicionário
+            // (e mandamos no JSON) para os que estão desbloqueados.
             const string sql = @"
                 SELECT
                     g.ProviderKey,
@@ -114,7 +127,15 @@ namespace PhalkProfiles
                         {
                             while (reader.Read())
                             {
-                                result.Add(new Dictionary<string, object>
+                                summary.TotalCount++;
+
+                                var isUnlocked = Convert.ToInt64(reader["Unlocked"]) == 1;
+                                if (!isUnlocked)
+                                {
+                                    continue;
+                                }
+
+                                summary.Unlocked.Add(new Dictionary<string, object>
                                 {
                                     { "provider", reader["ProviderKey"] as string },
                                     { "name", reader["DisplayName"] as string },
@@ -126,7 +147,6 @@ namespace PhalkProfiles
                                     { "globalPercentUnlocked", reader["GlobalPercentUnlocked"] as double? },
                                     { "rarity", reader["Rarity"] as string },
                                     { "hidden", Convert.ToInt64(reader["Hidden"]) == 1 },
-                                    { "unlocked", Convert.ToInt64(reader["Unlocked"]) == 1 },
                                     { "unlockTimeUtc", reader["UnlockTimeUtc"] as string },
                                     { "progressNum", reader["ProgressNum"] as long? },
                                     { "progressDenom", reader["ProgressDenom"] as long? }
@@ -147,7 +167,7 @@ namespace PhalkProfiles
                 logger.Error(ex, $"Phalk Profiles: falha inesperada lendo achievements de '{game.Name}'.");
             }
 
-            return result;
+            return summary;
         }
     }
 }
