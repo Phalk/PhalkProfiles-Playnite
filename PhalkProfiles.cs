@@ -43,7 +43,25 @@ namespace PhalkProfiles
             Task.Run(() => SincronizarBibliotecaCompleta());
         }
 
-        // Ao fechar um jogo: Envia apenas este jogo individualmente
+        // Ao iniciar um jogo: Envia apenas este jogo individualmente com IsPlaying = 1
+        public override void OnGameStarted(OnGameStartedEventArgs args)
+        {
+            var settings = SettingsViewModel.Settings;
+
+            if (!SettingsValidas(settings))
+            {
+                logger.Warn("Phalk Profiles: Configurações ausentes. Dados do jogo não enviados.");
+                return;
+            }
+
+            logger.Info($"Phalk Profiles: Jogo {args.Game.Name} iniciado, enviando atualização individual (IsPlaying = 1).");
+            // Workaround: usamos DateTime.Now aqui em vez de args.Game.LastActivity, pois o valor
+            // interno do Playnite pode não estar atualizado no exato instante deste evento.
+            var payload = MontarPayload(args.Game, isPlaying: true, lastActivityOverride: DateTime.Now);
+            Task.Run(() => EnviarParaServidor(payload, settings));
+        }
+
+        // Ao fechar um jogo: Envia apenas este jogo individualmente com IsPlaying = 0
         public override void OnGameStopped(OnGameStoppedEventArgs args)
         {
             var settings = SettingsViewModel.Settings;
@@ -60,8 +78,8 @@ namespace PhalkProfiles
                 return;
             }
 
-            logger.Info($"Phalk Profiles: Jogo {args.Game.Name} fechado, enviando atualização individual.");
-            var payload = MontarPayload(args.Game);
+            logger.Info($"Phalk Profiles: Jogo {args.Game.Name} fechado, enviando atualização individual (IsPlaying = 0).");
+            var payload = MontarPayload(args.Game, isPlaying: false);
             Task.Run(() => EnviarParaServidor(payload, settings));
         }
 
@@ -199,21 +217,37 @@ namespace PhalkProfiles
                    !string.IsNullOrEmpty(settings.Password);
         }
 
-        private Dictionary<string, object> MontarPayload(Game game)
+        // isPlaying == true  -> jogo acabou de ser iniciado (IsPlaying = 1)
+        // isPlaying == false -> jogo acabou de ser encerrado (IsPlaying = 0)
+        // isPlaying == null  -> não inclui o campo IsPlaying (usado no envio em lote/sync manual)
+        //
+        // lastActivityOverride -> se informado, usa esse horário no campo "lastActivity" em vez de
+        // game.LastActivity. Usado no início do jogo (OnGameStarted), já que o valor de
+        // game.LastActivity mantido internamente pelo Playnite nem sempre está atualizado no exato
+        // instante em que esse evento dispara. Mesmo formato que o Playnite usa: yyyy-MM-dd HH:mm:ss.
+        private Dictionary<string, object> MontarPayload(Game game, bool? isPlaying = null, DateTime? lastActivityOverride = null)
         {
             var achievements = GetGameAchievements(game);
+            var lastActivity = lastActivityOverride ?? game.LastActivity;
 
-            return new Dictionary<string, object>
+            var payload = new Dictionary<string, object>
             {
                 { "id", game.Id.ToString() },
                 { "name", game.Name },
                 { "playTime", game.Playtime },
-                { "lastActivity", game.LastActivity?.ToString("yyyy-MM-dd HH:mm:ss") },
+                { "lastActivity", lastActivity?.ToString("yyyy-MM-dd HH:mm:ss") },
                 { "platform", game.Platforms != null && game.Platforms.Count > 0 ? game.Platforms[0].Name : "Desconhecida" },
                 { "rating", game.UserScore },
                 { "achievementsTotal", achievements.TotalCount },
                 { "achievements", achievements.Unlocked }
             };
+
+            if (isPlaying.HasValue)
+            {
+                payload["IsPlaying"] = isPlaying.Value ? 1 : 0;
+            }
+
+            return payload;
         }
 
         private PlayniteAchievementsReader.AchievementsSummary GetGameAchievements(Game game)
