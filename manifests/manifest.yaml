@@ -1,5 +1,11 @@
 AddonId: PhalkProfiles_89cb4f84-54e2-480c-8536-781fc826ef63
 Packages:
+  - Version: 1.0.4
+    RequiredApiVersion: 6.2.0
+    ReleaseDate: 2026-07-18
+    PackageUrl: https://github.com/Phalk/PhalkProfiles-Playnite/releases/download/1.0.4/PhalkProfiles_89cb4f84-54e2-480c-8536-781fc826ef63_1_0_4.pext
+    Changelog:
+      - New feature - Now Playing
   - Version: 1.0.3
     RequiredApiVersion: 6.2.0
     ReleaseDate: 2026-07-18
