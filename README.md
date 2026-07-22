@@ -4,7 +4,7 @@ This is a plugin for the [Playnite](https://playnite.link/) game library manager
 
 ---
 
-## 🚀 Features
+## Features
 
 The plugin automates the export of your game data from Playnite to the Phalk Profiles platform. With it, you can:
 * **Share Your Library:** Showcase your entire game collection in one single place.
