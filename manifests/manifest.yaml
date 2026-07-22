@@ -1,5 +1,12 @@
 AddonId: PhalkProfiles_89cb4f84-54e2-480c-8536-781fc826ef63
 Packages:
+  - Version: 1.0.5
+    RequiredApiVersion: 6.2.0
+    ReleaseDate: 2026-07-22
+    PackageUrl: https://github.com/Phalk/PhalkProfiles-Playnite/releases/download/1.0.5/PhalkProfiles_89cb4f84-54e2-480c-8536-781fc826ef63_1_0_5.pext
+    Changelog:
+      - Updated the settings screen
+      - Play time is now uploaded using UTC+0 to avoid discrepancies (please update to this version or your profile dates/times will be wrong from now on!)
   - Version: 1.0.4
     RequiredApiVersion: 6.2.0
     ReleaseDate: 2026-07-21
