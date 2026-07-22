@@ -4,37 +4,103 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
-             d:DesignHeight="380" d:DesignWidth="420">
-    <StackPanel Margin="20">
-        <TextBlock Text="Phalk Profiles - Configuration" FontSize="16" FontWeight="Bold" Margin="0,0,0,20"/>
+             d:DesignHeight="620" d:DesignWidth="460">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="20">
+            <TextBlock Text="Phalk Profiles - Configuration" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
 
-        <TextBlock Text="API URL:" Margin="0,10,0,5"/>
-        <TextBox Text="{Binding Settings.ApiUrl, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,8">
+                Connect Playnite to your Phalk Profiles account to synchronize your played games,
+                playtime, recent activity and achievements.
+            </TextBlock>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,15">
+                <Hyperlink NavigateUri="https://phalk.net/profiles" RequestNavigate="Link_RequestNavigate">Open Phalk Profiles</Hyperlink>
+                <Run Text="  |  "/>
+                <Hyperlink NavigateUri="https://www.phalk.net/profiles/login" RequestNavigate="Link_RequestNavigate">Create a new user</Hyperlink>
+            </TextBlock>
 
-        <TextBlock Text="Username:" Margin="0,10,0,5"/>
-        <TextBox Text="{Binding Settings.Username, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+            <TextBlock Text="API URL:" Margin="0,6,0,5"/>
+            <TextBox Text="{Binding Settings.ApiUrl, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
 
-        <TextBlock Text="Password:" Margin="0,10,0,5"/>
-        <!-- PasswordBox não suporta Binding direto por segurança do WPF,
-             então o valor é sincronizado via code-behind (evento PasswordChanged). -->
-        <PasswordBox x:Name="PasswordInput" Padding="5" PasswordChanged="PasswordInput_PasswordChanged"/>
+            <TextBlock Text="Username:" Margin="0,10,0,5"/>
+            <TextBox Text="{Binding Settings.Username, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
 
-        <Separator Margin="0,20,0,15"/>
+            <TextBlock Text="Password:" Margin="0,10,0,5"/>
+            <!-- PasswordBox não suporta Binding direto por segurança do WPF. -->
+            <PasswordBox x:Name="PasswordInput" Padding="5" PasswordChanged="PasswordInput_PasswordChanged"/>
 
-        <TextBlock Text="Manual sync" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
-        <TextBlock Text="Saving only stores your settings. Use the button below to push your full library right now."
-                   TextWrapping="Wrap" Opacity="0.7" Margin="0,0,0,10"/>
-
-        <StackPanel Orientation="Horizontal">
-            <Button x:Name="SyncNowButton"
-                    Content="Sync Now"
-                    Padding="15,6"
-                    Click="SyncNowButton_Click"/>
-            <TextBlock x:Name="SyncStatusText"
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <Button x:Name="SaveButton"
+                        Content="Save"
+                        Padding="15,6"
+                        Click="SaveButton_Click"/>
+                <Button x:Name="ViewProfileButton"
+                        Content="View profile"
+                        Padding="15,6"
+                        Margin="8,0,0,0"
+                        Click="ViewProfileButton_Click">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Settings.IsAuthenticated}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <TextBlock
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,0"
+                           TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value=""/>
+                            <Setter Property="Foreground" Value="Gray"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Settings.IsAuthenticated}" Value="True">
+                                    <Setter Property="Text" Value="User is authenticated"/>
+                                    <Setter Property="Foreground" Value="Green"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+            <TextBlock x:Name="SaveStatusText"
                        Text=""
-                       VerticalAlignment="Center"
-                       Margin="12,0,0,0"
+                       Margin="0,7,0,0"
                        TextWrapping="Wrap"/>
+
+            <Separator Margin="0,20,0,15"/>
+
+            <TextBlock Text="How to use" FontSize="14" FontWeight="Bold" Margin="0,0,0,5"/>
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,4"
+                       Text="1. Enter your Phalk Profiles username and password, then click the Save button above to authenticate."/>
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,4"
+                       Text="2. After authentication, click View profile to open your public profile."/>
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,4"
+                       Text="3. Use Sync Now to send your eligible Playnite library immediately."/>
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,10"
+                       Text="Games are also updated automatically when Playnite starts and when you start or stop playing."/>
+
+            <TextBlock Text="Manual sync" FontSize="14" FontWeight="Bold" Margin="0,8,0,5"/>
+            <TextBlock Text="Saving only stores your settings. Use the button below to push your full library right now."
+                       TextWrapping="Wrap" Opacity="0.7" Margin="0,0,0,10"/>
+
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="SyncNowButton"
+                        Content="Sync Now"
+                        Padding="15,6"
+                        Click="SyncNowButton_Click"/>
+                <TextBlock x:Name="SyncStatusText"
+                           Text=""
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,0"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
         </StackPanel>
-    </StackPanel>
+    </ScrollViewer>
 </UserControl>

@@ -1,5 +1,8 @@
+using System;
+using System.Diagnostics;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Navigation;
 
 namespace PhalkProfiles
 {
@@ -27,6 +30,58 @@ namespace PhalkProfiles
             {
                 vm.Settings.Password = PasswordInput.Password;
             }
+        }
+
+        private async void SaveButton_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            if (!(DataContext is PhalkProfilesSettingsViewModel vm))
+            {
+                return;
+            }
+
+            if (!vm.VerifySettings(out var errors))
+            {
+                SaveStatusText.Foreground = Brushes.OrangeRed;
+                SaveStatusText.Text = string.Join(" ", errors);
+                return;
+            }
+
+            SaveButton.IsEnabled = false;
+            SaveStatusText.Foreground = Brushes.Gray;
+            SaveStatusText.Text = "Authenticating...";
+
+            try
+            {
+                var authenticated = await vm.AuthenticateAndSaveAsync();
+                SaveStatusText.Foreground = authenticated ? Brushes.Green : Brushes.OrangeRed;
+                SaveStatusText.Text = authenticated
+                    ? "Settings saved."
+                    : "Authentication failed. Check the API URL, username and password.";
+            }
+            finally
+            {
+                SaveButton.IsEnabled = true;
+            }
+        }
+
+        private void ViewProfileButton_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            if (DataContext is PhalkProfilesSettingsViewModel vm && vm.Settings.IsAuthenticated)
+            {
+                OpenUrl("https://phalk.net/profiles/profile?u=" +
+                    Uri.EscapeDataString(vm.Settings.AuthenticatedUsername));
+            }
+        }
+
+        private void Link_RequestNavigate(object sender, RequestNavigateEventArgs e)
+        {
+            OpenUrl(e.Uri.AbsoluteUri);
+            e.Handled = true;
+        }
+
+        private static void OpenUrl(string url)
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
 
         private async void SyncNowButton_Click(object sender, System.Windows.RoutedEventArgs e)

@@ -11,14 +11,59 @@ namespace PhalkProfiles
         private string apiUrl = "https://www.phalk.net/profiles/api.php";
         private string username = "";
         private string password = "";
+        private bool isAuthenticated;
+        private string authenticatedUsername = "";
 
-        public string ApiUrl { get => apiUrl; set => SetValue(ref apiUrl, value); }
-        public string Username { get => username; set => SetValue(ref username, value); }
+        public string ApiUrl
+        {
+            get => apiUrl;
+            set
+            {
+                if (apiUrl != value)
+                {
+                    SetValue(ref apiUrl, value);
+                    ClearAuthentication();
+                }
+            }
+        }
+
+        public string Username
+        {
+            get => username;
+            set
+            {
+                if (username != value)
+                {
+                    SetValue(ref username, value);
+                    ClearAuthentication();
+                }
+            }
+        }
 
         // A senha fica salva em texto puro no arquivo de settings do plugin
         // (%AppData%\Playnite\ExtensionsData\<id>\config.json), mas trafega
         // via HTTPS + Basic Auth e é validada no servidor com sha1().
-        public string Password { get => password; set => SetValue(ref password, value); }
+        public string Password
+        {
+            get => password;
+            set
+            {
+                if (password != value)
+                {
+                    SetValue(ref password, value);
+                    ClearAuthentication();
+                }
+            }
+        }
+
+        public bool IsAuthenticated { get => isAuthenticated; set => SetValue(ref isAuthenticated, value); }
+        public string AuthenticatedUsername { get => authenticatedUsername; set => SetValue(ref authenticatedUsername, value); }
+
+        private void ClearAuthentication()
+        {
+            IsAuthenticated = false;
+            AuthenticatedUsername = "";
+        }
     }
 
     public class PhalkProfilesSettingsViewModel : ObservableObject, ISettings
@@ -104,5 +149,22 @@ namespace PhalkProfiles
                 IsSyncing = false;
             }
         }
+
+        public async Task<bool> AuthenticateAndSaveAsync()
+        {
+            var authenticated = await plugin.TestarAutenticacaoAsync(Settings);
+
+            Settings.IsAuthenticated = authenticated;
+            Settings.AuthenticatedUsername = authenticated ? Settings.Username : "";
+
+            if (authenticated)
+            {
+                plugin.SavePluginSettings(Settings);
+                editingClone = Serialization.GetClone(Settings);
+            }
+
+            return authenticated;
+        }
+
     }
 }

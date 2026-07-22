@@ -224,7 +224,8 @@ namespace PhalkProfiles
         // lastActivityOverride -> se informado, usa esse horário no campo "lastActivity" em vez de
         // game.LastActivity. Usado no início do jogo (OnGameStarted), já que o valor de
         // game.LastActivity mantido internamente pelo Playnite nem sempre está atualizado no exato
-        // instante em que esse evento dispara. Mesmo formato que o Playnite usa: yyyy-MM-dd HH:mm:ss.
+        // instante em que esse evento dispara. O valor é convertido para UTC antes do envio,
+        // mantendo o formato esperado pela API: yyyy-MM-dd HH:mm:ss.
         private Dictionary<string, object> MontarPayload(Game game, bool? isPlaying = null, DateTime? lastActivityOverride = null)
         {
             var achievements = GetGameAchievements(game);
@@ -235,7 +236,7 @@ namespace PhalkProfiles
                 { "id", game.Id.ToString() },
                 { "name", game.Name },
                 { "playTime", game.Playtime },
-                { "lastActivity", lastActivity?.ToString("yyyy-MM-dd HH:mm:ss") },
+                { "lastActivity", FormatarDataUtc(lastActivity) },
                 { "platform", game.Platforms != null && game.Platforms.Count > 0 ? game.Platforms[0].Name : "Desconhecida" },
                 { "rating", game.UserScore },
                 { "achievementsTotal", achievements.TotalCount },
@@ -248,6 +249,11 @@ namespace PhalkProfiles
             }
 
             return payload;
+        }
+
+        private static string FormatarDataUtc(DateTime? data)
+        {
+            return data?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss");
         }
 
         private PlayniteAchievementsReader.AchievementsSummary GetGameAchievements(Game game)
@@ -326,6 +332,19 @@ namespace PhalkProfiles
                 logger.Error(ex, "Phalk Profiles: Falha crítica de rede ao tentar enviar o lote para a API.");
                 return false;
             }
+        }
+
+        public async Task<bool> TestarAutenticacaoAsync(PhalkProfilesSettings settings)
+        {
+            if (!SettingsValidas(settings))
+            {
+                return false;
+            }
+
+            // Um lote vazio valida endpoint, conexão e credenciais sem alterar jogos.
+            return await EnviarLoteParaServidor(
+                new List<Dictionary<string, object>>(),
+                settings);
         }
 
         public override ISettings GetSettings(bool firstRunSettings)
