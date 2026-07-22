@@ -14,7 +14,7 @@ The plugin automates the export of your game data from Playnite to the Phalk Pro
 
 ---
 
-## 🛠️ How to Use
+## How to Use
 
 ### 1. Prerequisites
 * **Playnite** installed (Desktop mode).
